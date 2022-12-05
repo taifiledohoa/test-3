@@ -1,0 +1,1457 @@
+   $(function(){
+
+
+
+    var currentQuery, currentType;
+    var currentPage = 1;
+
+   var listlink_array = [];
+       // Create Base64 Object
+       var Base64={_keyStr:"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=",encode:function(e){var t="";var n,r,i,s,o,u,a;var f=0;e=Base64._utf8_encode(e);while(f<e.length){n=e.charCodeAt(f++);r=e.charCodeAt(f++);i=e.charCodeAt(f++);s=n>>2;o=(n&3)<<4|r>>4;u=(r&15)<<2|i>>6;a=i&63;if(isNaN(r)){u=a=64}else if(isNaN(i)){a=64}t=t+this._keyStr.charAt(s)+this._keyStr.charAt(o)+this._keyStr.charAt(u)+this._keyStr.charAt(a)}return t},decode:function(e){var t="";var n,r,i;var s,o,u,a;var f=0;e=e.replace(/[^A-Za-z0-9\+\/\=]/g,"");while(f<e.length){s=this._keyStr.indexOf(e.charAt(f++));o=this._keyStr.indexOf(e.charAt(f++));u=this._keyStr.indexOf(e.charAt(f++));a=this._keyStr.indexOf(e.charAt(f++));n=s<<2|o>>4;r=(o&15)<<4|u>>2;i=(u&3)<<6|a;t=t+String.fromCharCode(n);if(u!=64){t=t+String.fromCharCode(r)}if(a!=64){t=t+String.fromCharCode(i)}}t=Base64._utf8_decode(t);return t},_utf8_encode:function(e){e=e.replace(/\r\n/g,"\n");var t="";for(var n=0;n<e.length;n++){var r=e.charCodeAt(n);if(r<128){t+=String.fromCharCode(r)}else if(r>127&&r<2048){t+=String.fromCharCode(r>>6|192);t+=String.fromCharCode(r&63|128)}else{t+=String.fromCharCode(r>>12|224);t+=String.fromCharCode(r>>6&63|128);t+=String.fromCharCode(r&63|128)}}return t},_utf8_decode:function(e){var t="";var n=0;var r=c1=c2=0;while(n<e.length){r=e.charCodeAt(n);if(r<128){t+=String.fromCharCode(r);n++}else if(r>191&&r<224){c2=e.charCodeAt(n+1);t+=String.fromCharCode((r&31)<<6|c2&63);n+=2}else{c2=e.charCodeAt(n+1);c3=e.charCodeAt(n+2);t+=String.fromCharCode((r&15)<<12|(c2&63)<<6|c3&63);n+=3}}return t}}
+
+
+    $('.search-form').on('submit', function(e) {
+
+            e.preventDefault();
+
+            currentQuery = $(this).find('input[name=s]').val();
+            currentType  = $(this).find('select[name=media_type]').val();
+            currentSite  = $('.search_site').val();
+
+            initSearchTemplate(currentQuery, currentType, currentPage, 'new', currentSite, '', '');
+
+            e.preventDefault();
+
+    });
+
+    $('.current-page').on('change', function(e) {
+
+            e.stopImmediatePropagation();
+
+            currentQuery = $('.search-form').find('input[name=s]').val();
+            currentType  = $('.search-form').find('select[name=media_type]').val();
+            currentSite  = $('.search_site').val();
+            totalCount   = $('.total-count').html();
+            pageValue    = $(this).val();
+            total_page   = $(".total_page").val();
+
+            // alert(pageValue+" "+total_page);
+
+
+            if( (pageValue*1) >= 1 && (pageValue*1) <= (total_page*1) ){
+                initSearchTemplate(currentQuery, currentType, pageValue,'current', currentSite, totalCount, total_page);
+            }else {
+                // $('.current-page').val(total_page);
+                initSearchTemplate(currentQuery, currentType, total_page,'current', currentSite, totalCount, total_page);
+            }
+
+            e.preventDefault();
+
+    });
+
+
+    $('.change-page').on('click', function(e) {
+
+            currentQuery = $('.search-form').find('input[name=s]').val();
+            currentType  = $('.search-form').find('select[name=media_type]').val();
+            currentSite  = $('.search_site').val();
+            totalCount   = $('.total-count').html();
+            totalPage    = $('.total_page').val();
+
+            changePage  = $(this).attr('data-page');
+            if(changePage){
+               initSearchTemplate(currentQuery, currentType, changePage,'current', currentSite, totalCount, totalPage);
+            }
+
+
+
+            e.stopImmediatePropagation();
+            e.preventDefault();
+
+    });
+
+    function initSearchTemplate(query, stype, page, state, site, count, total_page) {
+      $.ajax({
+                  url: 'search.php',
+                  type: 'POST',
+                  data: {q: query, media_type: stype, page: page, state: state, site: site, count: count, total_page: total_page},
+                  beforeSend: function() {
+                      $('.search-loading').removeClass("hide").show();
+                  },
+                  success: function(json) {
+                      $('.search-loading').hide();
+                      renderSearchTemplate(json);
+                  }
+       });
+    }
+
+    function renderSearchTemplate(data){
+        result = jQuery.parseJSON(data);
+
+        $('.total-count').html(result.count);
+        $('.div-total-count,.info-page').removeClass("hide").fadeIn("150");
+        $('.current-page').val(result.page);
+        $('.total-page').html(result.total_page);
+        $('.total_page').val(result.total_page);
+
+        if(result.next_page){
+            $('.page-next a').attr('data-page',result.next_page);
+            $('.page-next').removeClass("disabled");
+        }else {
+            $('.page-next').addClass("disabled");
+            $('.page-next a').attr('data-page',"");
+        }
+
+        if(result.prev_page){
+            $('.page-prev a').attr('data-page',result.prev_page);
+            $('.page-prev').removeClass("disabled");
+        }else {
+            $('.page-prev').addClass("disabled");
+            $('.page-prev a').attr('data-page',"");
+        }
+
+        n = 1;
+        htmldata = '';
+        $('.search-result').html("");
+
+        var container = $('.search-result');
+        container.masonry('destroy');
+
+        $.each(result.data,function(key,value){
+
+            // if(n==1){
+            //   htmldata = htmldata +'<div class="row">&nbsp;\n';
+            // }
+            selected = "";
+            if($.inArray( value.img_id , listlink_array ) != -1){
+              selected = "selected";
+            }
+            imgtype = '';
+            if(value.img_type=="vector"){
+               imgtype = '<span class="imgvector">vector</span>';
+            }
+
+             htmldata = htmldata + '<div class="col-md-3 item_photo">  <a href="'+value.img_url+'" target="_blank" class="btn btn-default btn-sm item_photo_link"><span class="glyphicon glyphicon-log-in"></span></a> <div class="thumbnail item_photo_div '+selected+'" id="'+value.img_id+'" style="padding: 5px"><img class="imgitem" src="'+value.img_src+'"  width="'+result.img_width+'" height="'+result.img_width+'"  /><p align="center">'+value.img_id+'</p> '+imgtype+'</div></div>\n';
+
+            // if(n==4){
+            //   htmldata = htmldata + '</div>\n';
+
+            //   n=0;
+            // }
+
+            n++;
+        });
+
+        $('.search-result').html(htmldata);
+         htmldata = "";
+
+        $('.item_photo_div').on('click',function(){
+
+          var id = $(this).attr("id");
+          var search_site = $(".search_site").val();
+          var current = $("#"+search_site);
+          var check = $(this);
+
+
+
+          if(!check.hasClass("selected")){
+
+              iNotification("",'Đã thêm ảnh <strong>'+id+'</strong> vào danh sách chờ tải!','');
+
+              current.val( current.val() +id+"\n");
+              check.addClass("selected");
+              listlink_array.push(id);
+
+
+
+          }else {
+
+              iNotification("",'Đã xoá ảnh <strong>'+id+'</strong> ra khỏi danh sách chờ tải!','danger');
+
+              check.removeClass("selected");
+              text = current.val().replace(new RegExp(id+'\r?\n','g'), '');
+              current.val(text);
+              removeItem(listlink_array,id);
+
+          }
+
+          // console.log(listlink_array);
+
+        });
+
+
+
+        container.imagesLoaded(function() {
+            container.masonry({ itemSelector: '.item_photo' });
+            // container.masonry( 'reloadItems' );
+            // container.masonry( 'layout' );
+        });
+
+
+
+
+    }
+
+    function iNotification(title, iMessage,type){
+       iTitle = title ? title : "";
+       iType = type ? type : "info";
+
+      $.growl({
+                  title: iTitle,
+                  message: iMessage
+                },{
+                  type: iType,
+                  z_index: 9999,
+                  spacing: 10,
+                  allow_dismiss: false,
+                  delay: 3000,
+                  placement: {
+                    from: "top",
+                    align: "right"
+                  },
+                  animate: {
+                    enter: 'animated bounceInRight',
+                    exit: 'animated bounceOutUp'
+                  }
+           });
+
+    }
+
+       function setCookie(name,value,days) {
+           var expires = "";
+           if (days) {
+               var date = new Date();
+               date.setTime(date.getTime() + (days*24*60*60*1000));
+               expires = "; expires=" + date.toUTCString();
+           }
+           document.cookie = name + "=" + (value || "")  + expires + "; path=/";
+       }
+
+       function getCookie(name) {
+           var nameEQ = name + "=";
+           var ca = document.cookie.split(';');
+           for(var i=0;i < ca.length;i++) {
+               var c = ca[i];
+               while (c.charAt(0)==' ') c = c.substring(1,c.length);
+               if (c.indexOf(nameEQ) == 0) return c.substring(nameEQ.length,c.length);
+           }
+           return null;
+       }
+
+       function eraseCookie(name) {
+           document.cookie = name +'=; Path=/; Expires=Thu, 01 Jan 1970 00:00:01 GMT;';
+       }
+
+    $('.site-item').click(function(e){
+        e.preventDefault();
+        var title = $(this).data('title');
+        var site = $(this).data('site');
+        var alias = $(this).data('alias');
+
+        $('.tags').addClass('hide');
+        $('.tag-'+alias).removeClass('hide');
+        document.title = title;
+        window.history.pushState({}, title, "/" + alias);
+        var desc = descSites[site];
+        if(typeof desc !== typeof undefined && desc != null ){
+            $('.box-desc').removeClass('hide');
+            $('.description').html(desc);
+        }else{
+            $('.description').html('');
+            if($('.box-desc').hasClass('hide') == false) {
+                $('.box-desc').addClass('hide');
+            }
+        }
+    })
+
+    var retry_times = 0;
+    var session1_array = ["a"];
+    var session2_array = ["a"];
+
+    var retry_array = {};
+    var siteActive = '';
+    var quality = '';
+
+    $("#mdownload").on("click",function(e){
+        // if(!$("#istockphoto").val()){
+        //     iNotification("",'Bạn chưa điền id ảnh hoăc link ảnh istockphoto nào!','danger');
+        //     e.preventDefault();
+        //     return false;
+        // }
+
+        // remove old
+        // $(".delete").remove();
+
+        // Show step 2
+        remove_effect ();
+        $('.step1').addClass('animated bounceOutLeft').fadeOut("1200");
+        $('.step2').removeClass("hide").show().addClass('animated zoomIn');
+        var current = 0;
+        var items = "";
+
+
+        $.each($(".mlink"), function( key, value ) {
+
+
+            var data = $(this).val();
+            if(data){
+                 var site = $(this).attr("id");
+                 var slug = $(this).data("slug");
+                siteActive = site;
+                // set cookie
+                setCookie('site_active', siteActive, 60);
+                $('.btn-back').attr('href', '/' + slug);
+
+                 items = data.split('\n');
+                  $.each(items, function( key, value ) {
+                    if(value){
+                        var success = true;
+                        var allServer = Base64.decode(servers);
+                        allServer = $.parseJSON( allServer );
+                        var serversList = allServer['all'];
+                        if(typeof allServer[siteActive] != "undefined"){
+                            serversList = allServer[siteActive];
+                        }
+                        if(typeof serversList == "undefined"){
+                            serversList = [0];
+                        }
+                        // var serversList = Base64.decode(servers);
+                        // if(siteActive == 'envatoelements'){
+                        //     serversList = Base64.decode(sv_envato) ;
+                        // }else if(siteActive == 'freepik'){
+                        //     serversList = Base64.decode(sv_freepik) ;
+                        // }else if(siteActive == 'shutterstockvideo'){
+                        //     serversList = Base64.decode(sv_shutervideo) ;
+                        // }
+                        console.log(serversList);
+                        console.log('site active', siteActive);
+
+                        // serversList = $.parseJSON( serversList );
+                        // console.log(serversList[0], serversList);
+                        // Thinkstock only
+
+                        if(site=="graphicstock" || site=="videoblocks" || site=="audioblocks"){
+                          console.log(value);
+                            if( value.match(/http:/gi) || value.match(/https:/gi))
+                            {
+                              var res = value.split("/");
+                              console.log(res);
+                              id = res[4];
+
+                              if(site=="graphicstock" || site=="audioblocks"){
+                                  var res2 = id.split(".html");
+                                  id = res2[0];
+                              }
+
+
+
+                            }else if(value.match(/www/gi)){
+                              var res = value.split("/");
+                              console.log(res);
+                              id = res[2];
+                              if(site=="graphicstock"||site=="audioblocks"){
+                                  var res2 = id.split(".html");
+                                  id = res2[0];
+                              }
+
+
+
+                            }else {
+                              id = value;
+                            }
+                         }else if(site=="thinkstockphotos"){
+                            if( value.match(/http:/gi) || value.match(/https:/gi))
+                            {
+                              var res = value.split("/");
+                              console.log(res);
+                              id = res[5];
+                            }else {
+                              id = value;
+                            }
+                        }
+                        else if(site=="istockphoto" || site=="istockphotov2" || site=="istockphotov3"){
+                            if( value.match(/http:/gi) || value.match(/https:/gi))
+                            {
+                              var regex = /-gm(.*)-/gi;
+                              match = regex.exec(value);
+                              if(match){
+                                 id = match[1];
+                              }
+                            }else {
+                              id = value;
+                            }
+                        }else if(site=="istockphotovideo"){
+                            if( value.match(/http:/gi) || value.match(/https:/gi))
+                            {
+                                var regex = /-gm(.*)-/gi;
+                                match = regex.exec(value);
+                                if(match){
+                                    id = match[1];
+                                }
+                            }else {
+                                id = value;
+                            }
+
+                            quality = $('input[name="quality"]:checked').val();
+                        }else if(site=="adobestockvideo"){
+                            if( value.match(/http:/gi) || value.match(/https:/gi))
+                            {
+                                var res = value.split("/");
+                                id = res[res.length-1];
+                            }else {
+                                id = value;
+                            }
+
+                            quality = $('input[name="quality"]:checked').val();
+                        }else if(site=="fotosearch"){
+                            if( value.match(/http:/gi) || value.match(/https:/gi))
+                            {
+                              var res = value.split("/");
+                              id = res[res.length-2];
+                              id  = id.replace('k','');
+                            }else {
+                              id = value;
+                            }
+                            id  = id.replace('k','');
+                        }
+                        else if(site=="123rf"){
+                            var regex = /\d[0-9]{4,10}/gi;
+                            match = regex.exec(value);
+                            if(match){
+                              var id = match[0];
+                            }
+                        }else if(site == 'envatoelements') {
+                            if( value.match(/http:/gi) || value.match(/https:/gi))
+                            {
+                                var res = value.split("-");
+                                id = res[res.length - 1];
+                            }else {
+                                id = value;
+                            }
+                        }else if(site == 'freepik') {
+                            if( value.match(/http:/gi) || value.match(/https:/gi))
+                            {
+                                var regex = /([0-9]+)\.htm/gm;
+                                var match = regex.exec(value);
+
+                                if(match){
+                                    id = match[0];
+                                    id  = id.replace('.htm','');
+                                }
+                            }else {
+                                id = value;
+                            }
+                        }else if(site == 'shutterstockvideo') {
+                            if( value.match(/http:/gi) || value.match(/https:/gi))
+                            {
+                                var regex = /video\/clip\-([0-9]+)/gm;
+                                var match = regex.exec(value);
+                                if(match){
+                                    id = match[1];
+                                }
+                            }else {
+                                id = value;
+                            }
+
+                            quality = $('input[name="quality"]:checked').val()
+
+                        }else if(site == 'shutterstockvideov2' || site == 'shutterstockvideov3'|| site == 'shutterstockvideov4') {
+                            if( value.match(/http:/gi) || value.match(/https:/gi))
+                            {
+                                var regex = /video\/clip\-([0-9]+)/gm;
+                                var match = regex.exec(value);
+                                if(match){
+                                    id = match[1];
+                                }
+                            }else {
+                                id = value;
+                            }
+
+                            quality = $('input[name="quality"]:checked').val()
+
+                        }else if(site == 'shutterstockmusic') {
+                            if( value.match(/http:/gi) || value.match(/https:/gi))
+                            {
+                                var regex = /music\/track\-([0-9]+)/gm;
+                                var match = regex.exec(value);
+                                if(match){
+                                    id = match[1];
+                                }
+                            }else {
+                                id = value;
+                            }
+
+                        }else if(site == 'shutterstockfree') {
+                            if( value.match(/http:/gi) || value.match(/https:/gi))
+                            {
+                                var res = value.split("-");
+                                id = res[res.length - 1];
+                            }else {
+                                id = value;
+                            }
+
+                        }else if(site == 'alamy' || site == 'alamyv2') {
+                            id = value;
+                            if( value.match(/http:/gi) || value.match(/https:/gi))
+                            {
+                                success = false;
+                                var isloading = false;
+                                console.log( value);
+                                async function getInfo(){
+                                    if(!isloading) {
+                                        isloading = true;
+                                        $.ajaxQueue({
+                                            url: "ajax.php",
+                                            type: "POST",
+                                            data: {site: site, info: value},
+                                            dataType: 'json',
+                                            success: function (res) {
+                                                console.log(res);
+                                                if(res.status == 1){
+                                                    id = res.id;
+                                                    getData();
+                                                }else{
+                                                    alert(res.message);
+                                                }
+                                            }, error: function () {
+                                                alert('Lỗi lấy thông tin ảnh');
+                                            }, complete: function () {
+                                                success = true;
+                                                isloading = false;
+                                            }
+                                        })
+                                    }
+
+                                    await sleep(2000).then(() => {
+                                        if(!success){
+                                            getInfo();
+                                        }
+                                        console.log(success, id);
+                                    });
+                                }
+
+                                getInfo();
+
+                            }
+
+                        }else if(site == 'pngtree') {
+                            if( value.match(/http:/gi) || value.match(/https:/gi))
+                            {
+                                var regex = /([0-9]+)\.html/gm;
+                                var match = regex.exec(value);
+
+                                if(match){
+                                    id = match[0];
+                                    id  = id.replace('.html','');
+                                }
+
+                                if(value.match(/freebackground/gi)){
+                                    id = 'bg'+id
+                                }
+
+
+                            }else {
+                                id = value;
+                            }
+                        }else if(site == 'lovepik') {
+                            if( value.match(/http:/gi) || value.match(/https:/gi))
+                            {
+                                var regex = /video\-([0-9]+)/gm;
+                                var match = regex.exec(value);
+
+                                if(match){
+                                    id = 'v' + match[1];
+                                }else{
+                                    regex = /footage\-([0-9]+)/gm;
+                                    match = regex.exec(value);
+                                    if(match){
+                                        id = 'f' + match[1];
+                                    }else{
+                                        regex = /music\-([0-9]+)/gm;
+                                        match = regex.exec(value);
+                                        if(match){
+                                            id = 'm' + match[1];
+                                        }else{
+                                            regex = /image\-([0-9]+)/gm;
+                                            match = regex.exec(value);
+
+                                            if(match){
+                                                id = match[1];
+                                            }
+                                        }
+                                    }
+                                }
+
+                            }else {
+                                id = value;
+                            }
+                        }else if(site == 'pikbest') {
+                            if( value.match(/http:/gi) || value.match(/https:/gi))
+                            {
+                                var regex = /([0-9]+)\.html/gm;
+                                var match = regex.exec(value);
+
+                                if(match){
+                                    id = match[0];
+                                    id  = id.replace('.html','');
+                                }
+                            }else {
+                                id = value;
+                            }
+                        }else if(site == 'stockunlimited') {
+                            if( value.match(/http:/gi) || value.match(/https:/gi))
+                            {
+                                if(value.match(/\/collections\//gi)){
+                                    var regex = /\/collections\/([0-9a-z_\-]+)/gm;
+                                    var match = regex.exec(value);
+
+                                    if(match){
+                                        id = match[0];
+                                        id  = id.replace('/collections/','');
+                                    }
+
+                                }else{
+                                    var regex = /([0-9]+)\.html/gm;
+                                    var match = regex.exec(value);
+
+                                    if(match){
+                                        id = match[0];
+                                        id  = id.replace('.html','');
+                                    }
+                                }
+
+                            }else {
+                                id = value;
+                            }
+                        }else if(site == 'ooopic') {
+                            if( value.match(/http:/gi) || value.match(/https:/gi))
+                            {
+                                var regex = /([0-9]+)\.html/gm;
+                                var match = regex.exec(value);
+
+                                if(match){
+                                    id = match[0];
+                                    id  = id.replace('.html','');
+                                }
+                            }else {
+                                id = value;
+                            }
+                        }else if(site == 'motionarray') {
+                           
+                            if( value.match(/http:/gi) || value.match(/https:/gi))
+                            {
+                                // var regex = /\-([0-9]+)\//gm;
+                                // var match = regex.exec(value);
+
+                                // if(match){
+                                //     id = match[0];
+                                //     id  = id.replace('/','');
+                                //     id  = id.replace('-','');
+                                // }
+
+                                 var linksplit = value.split('/');
+                                var id = linksplit[linksplit.length-2];
+                            }else {
+                                id = value;
+                            }
+                        }else if(site == 'motionelements') {
+                           
+                            if( value.match(/http:/gi) || value.match(/https:/gi))
+                            {
+                                var linksplit = value.split('/');
+                                var id_range = linksplit[3];
+                                var regex = /-([0-9]+)-/gm;
+                                var match = regex.exec(id_range);
+                                if(match){
+                                    id = match[0];
+                                    id  = id.replace('/','');
+                                    id  = id.replace(/-/gi,'');
+                                }
+                            }else {
+                                id = value;
+                            }
+                        }else if(site == 'pixelsquid') {
+                            if( value.match(/http:/gi) || value.match(/https:/gi))
+                            {
+                                var url = new URL(value);
+                                var regex = /\-([0-9]+)/gm;
+                                var match = regex.exec(url.pathname);
+
+                                if(match){
+                                    var path = match[0].split('?');
+                                    id  = path[0].replace('-','');
+                                }
+                                var regex2 = /image=([A-Z0-9]+)/gm;
+                                var match2 = regex2.exec(url.search);
+                                if(match2){
+                                    var view = match2[0];
+                                    view  = view.replace('image=','');
+                                    id = id + "-" + view;
+                                }
+                            }else {
+                                id = value;
+                            }
+                        }else if(site == 'utoimage') {
+                            if( value.match(/http:/gi) || value.match(/https:/gi))
+                            {
+                                var url = new URL(value);
+                                var regex = /&idx=([a-zA-Z0-9]+)/gm;
+                                var match = regex.exec(url.search);
+
+                                if(match){
+                                    id = match[0];
+                                    id  = id.replace('&idx=','');
+                                }
+
+                            }else {
+                                id = value;
+                            }
+                        }else if(site == 'yellowimage') {
+                            if( value.match(/http:/gi) || value.match(/https:/gi))
+                            {
+                                var url = new URL(value);
+
+                                var path = url.pathname.split('-');
+                                var i = path.length - 1;
+                                id = path[i];
+
+                            }else {
+                                id = value;
+                            }
+                        }else{
+                             // Normal Site
+                            var regex = /-\d[0-9]{3,10}\?st/gi;
+                            match = regex.exec(value);
+                            // id anh st
+                            if(match){
+                              console.log(match);
+                              var id = match[0];
+                              id  = id.replace('-','');
+                              id  = id.replace('?st','');
+                              // alert(id);
+                            }else {
+                                 var regex = /\d[0-9]{3,10}/g;
+                                 var matches = value.match(regex);
+                                 // console.log(matches);
+                                  // id anh st
+                                  if(matches){
+                                    var id = matches[matches.length-1];
+                                    // alert(id);
+                                  }
+                            }
+                        }
+
+                        if(success) {
+                            getData();
+                        }
+
+                         function getData() {
+
+
+                                var active = "";
+                                if (key % 2 == 0) {
+                                    active = "active";
+                                }
+                                if (site == "graphicstock" || site == "videoblocks" || site == "audioblocks") {
+                                    var id_fix = id.replace(".", "");
+                                    id_fix = id_fix.replace("#", "");
+                                }
+
+
+                                add_row(active, (key + 1), id, site, "<img src='template/img/loading1.gif' width='16' height='16'/> Đang lấy thông tin ảnh...", "", "");
+
+                                id_orgin = id;
+                                id = id.replace("%C2%A0", "zzzzzzzzz");
+                                id = id.replace("(", "zyzyzyzyz");
+                                id = id.replace(")", "zyzyzyzyyyz");
+
+                                // processing..
+                                $('.text-main').html('Xác nhận và bấm "Bắt đầu download" để tải ảnh');
+                                $('.' + id + site).addClass('warning');
+
+                                $.ajaxQueue({
+                                    type: "POST",
+                                    url: 'ajax.php',
+                                    data: {id: id_orgin, site: site, sv: serversList[0], quality:quality},
+                                    success: function (data) {
+                                        if (data) {
+
+                                            var result = $.parseJSON(data);
+                                            if (result.status == 1) {
+                                                var captcha = '';
+
+                                                if(typeof result.captcha != "undefined" && result.captcha.match(/data:/g)){
+                                                    captcha = result.captcha;
+
+                                                    captcha = '<br><img src="'+captcha+'" style="width: 80px;" />';
+                                                }
+
+
+                                                if (result.mode == "redownload") {
+                                                    $('.' + id + site + ' .status').html('<strong>Hoàn thành</strong>');
+                                                    $('.' + id + site + ' .option').html('<div><a href="' + result.url + '" class="btn btn-warning" download><i class="glyphicon glyphicon-cloud-download icon-white"></i> Tải về</a></div> <div><small><strong>' + result.file_name + '</strong> (' + bytesToSize(result.file_size) + ') &nbsp <a href="javascript:void(0);" class="hideline" ref="' + id + site + '">[Ẩn dòng này]</a> </small></div> ');
+                                                    if (result.slot) {
+                                                        $('.' + id + site + ' .fee').html("<strong style='color:green'>Tải lại miễn phí</strong>");
+                                                        $('.' + id + site + ' .fee').append("<br> Còn lại: <strong>" + result.slot + "</strong> lượt tải");
+                                                    } else if (result.xu) {
+                                                        $('.' + id + site + ' .fee').html("<strong style='color:green'>Tải lại miễn phí</strong>");
+                                                        $('.' + id + site + ' .fee').append("<br> Còn lại: <strong>" + result.xu + "</strong> xu");
+                                                    }
+                                                    $('.' + id + site + ' .thumb img').attr('src', result.thumbnail);
+                                                    $('.' + id + site).removeClass("warning danger");
+                                                    $('.' + id + site).delay("1100").addClass('rubberBand animated success');
+                                                    var txt = $(".listurl");
+                                                    txt.val(txt.val() + result.url + "\n");
+                                                    return true;
+                                                } else {
+                                                    $('.' + id + site).removeClass('warning');
+
+                                                    imgsize = imgtype = "leechstock";
+                                                    if (result.size) {
+                                                        imgsize = result.size;
+                                                    }
+                                                    if (result.type) {
+                                                        imgtype = result.type;
+                                                    }
+
+                                                    var size = result.file_size;
+                                                    if (typeof result.spec != 'undefined') {
+                                                        size = result.spec;
+                                                    }
+
+                                                    $('.' + id + site + ' .thumb img').attr('src', result.thumbnail);
+                                                    $('.' + id + site + ' .status').html('Xác nhận thông tin' + captcha);
+                                                    $('.' + id + site + ' .option').html('<div  style="margin-right:5px;display:inline-block">' + size + '<br/>' + imgtype + '<br><input type="'+(captcha ? 'text' : 'hidden')+'" id="' + id + '" taskid="' + result.task_id + '" tasktime="' + result.task_time + '" site="' + site + '" imgsize="' + imgsize + '" imgtype="' + imgtype + '" name="captcha" class="captcha" value="1234"><br/><a href="javascript:void(0);" class="removeline text-danger" style="display:none" ref="' + id + site + '"><span class="glyphicon glyphicon-remove" aria-hidden="true"></span> Bỏ tải ảnh này</a></div> ');
+                                                    if (result.fee == 0) {
+                                                        $('.' + id + site + ' .fee').html("<strong style='color:green'>Tải lại miễn phí</strong>");
+                                                    } else {
+                                                        $('.' + id + site + ' .fee').html("- " + result.fee);
+                                                    }
+                                                    $('.' + id + site).delay("1100").addClass('animated bounceIn');
+                                                }
+                                                // console.log(result);
+
+                                            } else {
+                                                $('.' + id + site).removeClass('warning');
+                                                if (serversList.length <= 1 && result.status == 0) {
+                                                    if(typeof result.fee != "undefined"){
+                                                        $('.' + id + site + ' .fee').html("- " + result.fee);
+                                                    }
+
+                                                    if(typeof result.thumbnail != "undefined"){
+                                                        $('.' + id + site + ' .thumb img').attr('src', result.thumbnail);
+                                                    }
+
+                                                    $('.' + id + site + ' .status').html("Thất bại");
+                                                    $('.' + id + site + ' .option').width(550);
+                                                    $('.' + id + site + ' .option').html(result.msg + '<br/><a href="javascript:void(0);" class="removeline text-danger" style="display:none" ref="' + id + site + '"><span class="glyphicon glyphicon-remove" aria-hidden="true"></span> Bỏ tải ảnh này</a>');
+                                                    $('.' + id + site).addClass('danger delete');
+                                                } else {
+                                                    var listSv = serversList;
+                                                    listSv.shift();
+                                                    retry(id, site, listSv);
+                                                }
+
+
+                                                // $('.'+id+' .status').html('Thất bại');
+                                                // $('.'+id+' .option').html(result.msg);
+                                                // $('.'+id).addClass('error delete');
+
+
+                                            }
+                                        } else {
+                                            alert("Dữ liệu server trả về không đúng!");
+                                            console.log(data);
+                                        }
+
+                                        current = current + percent;
+                                        $(".progress-bar").css('width', current + '%');
+                                        $(".progress-bar").html(parseInt(Math.round(current)) + '%');
+                                        if (current >= 100) {
+                                            $('.text-main').html('Kiểm tra thông tin và bấm bắt đầu tải');
+                                            $(".progress").delay("1000").fadeOut("600");
+                                        }
+
+                                    }
+                                });
+                            }
+
+                        }
+
+                  });
+            }
+        });
+
+
+
+        var current_text_main = $('.text-main').html();
+
+        var items2 = cleanArray(items);
+        var percent = 100 / items2.length ;
+        $('.progress').removeClass("hide");
+
+
+        $(".mlink").val("");
+
+        e.preventDefault();
+    });
+
+   function sleep(ms) {
+       return new Promise(resolve => setTimeout(resolve, ms));
+   }
+
+    function retry(id,site, listSv){
+
+        // Count retry
+        var key = id;
+        if(site != 'shutterstock' && site != 'envatoelements' && site != 'freepik' && site != 'shutterstockvideo') {
+
+            if (retry_array.hasOwnProperty(key)) {
+                var id_count = retry_array[key];
+            } else {
+                id_count = 1;
+                retry_array[key] = 1;
+            }
+        }else{
+            var id_count = 0;
+        }
+        var sv = listSv[0];
+        listSv.shift();
+
+        id_orgin = id.replace("zzzzzzzzz","%C2%A0");
+        id_orgin = id_orgin.replace("(","zyzyzyzyz");
+        id_orgin = id_orgin.replace(")","zyzyzyzyyyz");
+
+        $('.'+id+site+' .status').html("<img src='template/img/loading2.gif' width='16' height='11'/> Đang tải ["+id_count+"]...");
+        // $('.'+id+' .option').html("Đang thử lại trên server khác... Vui lòng đợi trong giây lát..");
+        $('.'+id+site).addClass('info delete');
+
+        $.ajax({
+                     type: "POST",
+                     url: 'ajax.php',
+                     data: {id:id_orgin,site:site, sv: sv, quality: quality},
+                     success: function( data ){
+                        if(data){
+                            $('.'+id+site).removeClass('info');
+                            var result = $.parseJSON( data );
+                            if(result.status==1){
+                                if(result.mode=="redownload"){
+                                    $('.'+id+site+' .status').html('<strong>Hoàn thành</strong>');
+                                    $('.'+id+site+' .option').html('<div><a href="'+result.url+'" class="btn btn-warning" download><i class="glyphicon glyphicon-cloud-download icon-white"></i> Tải về</a></div> <div><small><strong>'+result.file_name+'</strong> ('+bytesToSize(result.file_size)+') &nbsp <a href="javascript:void(0);" class="hideline" ref="'+id+site+'">[Ẩn dòng này]</a> </small></div> ');
+                                    if(result.slot){
+                                        $('.'+id+site+' .fee').html("<strong style='color:green'>Tải lại miễn phí</strong>");
+                                        $('.'+id+site+' .fee').append("<br> Còn lại: <strong>"+result.slot+"</strong> lượt tải");
+                                    }else if(result.xu) {
+                                        $('.'+id+site+' .fee').html("<strong style='color:green'>Tải lại miễn phí</strong>");
+                                        $('.'+id+site+' .fee').append("<br> Còn lại: <strong>"+result.xu+"</strong> xu");
+                                    }
+                                    $('.'+id+site).removeClass("warning danger");
+                                    $('.'+id+site).delay("1100").addClass('rubberBand animated success');
+                                    var txt = $(".listurl");
+                                    txt.val( txt.val() + result.url +"\n");
+                                    return true;
+                                }else{
+                                    var captcha = '';
+                                    if(result.captcha.match(/data:/g)){
+                                        captcha = result.captcha;
+
+                                        captcha = '<br><img src="'+captcha+'" style="width: 80px;" />';
+                                    }
+
+                                    var size = result.file_size;
+                                    if(typeof result.spec != 'undefined'){
+                                        size = result.spec;
+                                    }
+
+                                    var imgsize = "leechstock";
+                                    if(result.size){
+                                        imgsize = result.size;
+                                    }
+
+                                    var imagetype = 'leechstock';
+                                    if(typeof result.type != 'undefined'){
+                                        imagetype = result.type;
+                                    }
+
+                                    $('.'+id+site+' .thumb img').attr('src',result.thumbnail);
+                                    $('.'+id+site+' .status').html('Xác nhận thông tin' + captcha);
+                                    $('.'+id+site+' .option').html('<div  style="margin-right:5px;display:inline-block">'+size+'<input type="'+(captcha ? 'text' : 'hidden')+'" id="'+id+'" taskid="'+result.task_id+'" tasktime="'+result.task_time+'" site="'+site+'" imgsize="'+imgsize+'" imgtype="'+imagetype+'" name="captcha" class="captcha" value="1234"><br/><a href="javascript:void(0);" class="removeline text-danger" style="display:none" ref="'+id+site+'"><span class="glyphicon glyphicon-remove" aria-hidden="true"></span> Bỏ tải ảnh này</a></div> ');
+                                    if(result.fee==0){
+                                        $('.'+id+site+' .fee').html("<strong style='color:green'>Tải lại miễn phí</strong>");
+                                    }else{
+                                        $('.'+id+site+' .fee').html("- "+result.fee);
+                                    }
+
+                                    $('.'+id+site).delay("1100").addClass('animated bounceIn');
+                                }
+
+                            }else {
+
+
+                                if(site == 'shutterstock'){
+                                    if(listSv.length <= 0){
+                                        $('.'+id+site+' .status').html("Thất bại");
+                                        $('.'+id+site+' .option').width(550);
+                                        $('.'+id+site+' .option').html(result.msg+'<br/><a href="javascript:void(0);" class="removeline text-danger" style="display:none" ref="'+id+site+'"><span class="glyphicon glyphicon-remove" aria-hidden="true"></span> Bỏ tải ảnh này</a>');
+                                        $('.'+id+site).addClass('danger delete');
+                                    }else{
+                                        retry(id,site, listSv);
+                                    }
+                                }else if(id_count <= retry_times) {
+                                    // counting
+                                    retry_array[key] = id_count + 1;
+                                    retry(id,site, listSv);
+                                }else {
+                                    $('.'+id+site+' .status').html("Thất bại");
+                                    $('.'+id+site+' .option').width(550);
+                                    $('.'+id+site+' .option').html(result.msg+'<br/><a href="javascript:void(0);" class="removeline text-danger" style="display:none" ref="'+id+site+'"><span class="glyphicon glyphicon-remove" aria-hidden="true"></span> Bỏ tải ảnh này</a>');
+                                    $('.'+id+site).addClass('danger delete');
+                                    // removeItem(session1_array,id);
+                                    // removeItem(session2_array,id);
+                                }
+
+                            }
+                        }else {
+                           alert("Dữ liệu server trả về không đúng!");
+                           console.log(data);
+                        }
+
+                     }
+                  });
+
+
+    }
+
+    $(".backstep-1").on("click",function(){
+        remove_effect ();
+        $('.step2').addClass('animated zoomOut').fadeOut("1800");
+        $('.step1').show().addClass('animated bounceInLeft');
+
+    });
+
+    $(".showlistlink").on("click",function(){
+        remove_effect();
+        if($('.listlink').hasClass("hide")){
+             $('.listlink').removeClass("hide").fadeIn("1780").addClass('animated rubberBand').focus();
+         }else {
+             $('.listlink').fadeOut("1800").addClass('animated bounceOutUp hide');
+         }
+
+    });
+
+
+     $(document).on("click", ".hideline", function(e) {
+        var id = $(this).attr("ref");
+        $('.'+id).addClass('animated bounceOutRight').fadeOut("1200");
+        // $('.'+id).fadeOut("500");
+
+    });
+
+    $(document).on("click", ".removeline", function(e) {
+        var id = $(this).attr("ref");
+        $('.'+id).fadeOut(500, function() { $(this).remove(); });
+    });
+
+
+    $(".btn-step3").on("click",function(){
+        remove_effect ();
+         var current = 0;
+         var captchalength = parseInt($('.captcha').filter(function(){ return $.trim($(this).val()) != '';}).length);
+
+         if(!captchalength){
+            alert("Không có link nào để thực hiện, hoặc chưa điền mã xác nhận!");
+            return false;
+         }
+
+         $(".progress-bar").css('width','0%');
+         $('.progress').removeClass("hide").fadeIn("100");
+         $(".progress-bar").html('');
+         $('.text-main').html('Đang thực hiện tải ảnh, xin đợi...');
+
+
+
+        $('.captcha').each(function() {
+            console.log('site active', siteActive);
+            // var serversList = Base64.decode(servers);
+            // if(siteActive == 'envatoelements'){
+            //     serversList = Base64.decode(sv_envato);
+            // }else if(siteActive == 'freepik'){
+            //     serversList = Base64.decode(sv_freepik);
+            // }else if(siteActive == 'shutterstockvideo'){
+            //     serversList = Base64.decode(sv_shutervideo);
+            // }
+            var allServer = Base64.decode(servers);
+            allServer = $.parseJSON( allServer );
+            var serversList = allServer['all'];
+            if(typeof allServer[siteActive] != "undefined"){
+                serversList = allServer[siteActive];
+            }
+            if(typeof serversList == "undefined"){
+                serversList = [0];
+            }
+
+            console.log('server list', serversList);
+
+           var captcha =  $(this).val();
+           var id    = $(this).attr("id");
+           var size  = $(this).attr("imgsize");
+           var type  = $(this).attr("imgtype");
+           var site  = $(this).attr("site");
+
+           if(captcha && id && size){
+              if(captcha.length==0){
+                  alert(id+" : Chưa nhập mã captcha!");
+                  $('#'+id).focus();
+                  return false;
+                }
+
+                $('.'+id+site+' .removeline').remove();
+
+                id_orgin = id.replace("zzzzzzzzz","%C2%A0");
+                id_orgin = id_orgin.replace("(","zyzyzyzyz");
+                id_orgin = id_orgin.replace(")","zyzyzyzyyyz");
+
+                $.ajaxQueue({
+                     type: "POST",
+                     url: 'ajax.php',
+                     data: "id="+id_orgin+"&captcha="+captcha+"&site="+site+"&size="+size+"&type="+type+"&sv="+serversList[0]+"&quality="+quality,
+                     beforeSend : function(xhr, opts){
+                        $('.'+id+site).addClass('warning');
+                        $('.'+id+site+' .status').html("<img src='template/img/loading1.gif'  width='16' height='16'/> Đang tải..");
+                     },
+                     success: function( data ){
+                        if(data){
+
+                            var result = $.parseJSON( data );
+                            if(result && result.hasOwnProperty('status') && result.status==1){
+                                $('.'+id+site+' .status').html('<strong>Hoàn thành</strong>');
+                                $('.'+id+site+' .option').html('<div><a href="'+result.url+'" class="btn btn-warning" download>Tải về</a></div> <div><small><strong>'+result.file_name+'</strong> ('+bytesToSize(result.file_size)+') &nbsp <a href="javascript:void(0);" class="hideline" ref="'+id+site+'">[Ẩn dòng này]</a> </small></div> ');
+                                if(result.slot){
+                                    $('.'+id+site+' .fee').append("<br> Còn lại: <strong>"+result.slot+"</strong> lượt tải");
+                                }else if(result.xu) {
+                                    $('.'+id+site+' .fee').append("<br> Còn lại: <strong>"+result.xu+"</strong> xu");
+                                }
+                                $('.'+id+site).removeClass("warning danger");
+                                $('.'+id+site).delay("1100").addClass('rubberBand animated success');
+                                var txt = $(".listurl");
+                                if(result.url_text){
+                                   txt.val( txt.val() + result.url_text +"\n");
+                                }else{
+                                  txt.val( txt.val() + result.url +"\n");
+                                }
+
+                            }else {
+                                // $('.'+id+site).removeClass("warning info");
+                                // $('.'+id+site).addClass("error");
+                                // $('.'+id+site+' .status').html('Thất bại');
+
+                                if(result && result.hasOwnProperty('msg') && result.msg=="Please re-enter the security code!"){
+                                    $('.'+id+site+' .status').html('Nhập sai mã xác nhận, hãy nhập lại!');
+                                }else {
+
+                                    // retry_array.push("x"+id);
+                                    $('.'+id+site).removeClass("warning");
+                                    if((site == 'shutterstock' && serversList.length <= 1) || result.hasOwnProperty("url") ){
+                                        $('.'+id+site+' .status').html("Thất bại");
+                                        $('.'+id+site+' .option').width(550);
+                                        $('.'+id+site+' .option').html(result.msg+'<br/><a href="javascript:void(0);" class="removeline text-danger" style="display:none" ref="'+id+site+'"><span class="glyphicon glyphicon-remove" aria-hidden="true"></span> Bỏ tải ảnh này</a>');
+                                        $('.'+id+site).addClass('danger delete');
+                                    }else{
+                                        var listSv = serversList;
+                                        listSv.shift();
+                                        retry2(id,site, listSv);
+                                        console.log(listSv);
+                                    }
+                                    // retry2(id,site);
+                                    // $('.'+id+' .option').html(result.msg);
+                                    // $('.'+id).addClass("delete");
+                                    // removeItem(session1_array,id);
+                                    // removeItem(session2_array,id);
+                                    // console.log(session1_array);
+
+                                }
+
+
+
+                            }
+                        }else {
+                           alert("Dữ liệu server trả về không đúng!");
+                           console.log(data);
+                        }
+
+                        var percent =  100 / captchalength ;
+
+                        current = current + percent;
+                        $(".progress-bar").css('width',current+'%');
+                        $(".progress-bar").html(parseInt(Math.round(current)) +'%');
+                        if(current==100){
+                           $('.text-main').html('Hoàn thành dữ liệu');
+                           $(".progress").delay("1000").fadeOut("600");
+                        }
+
+                     }
+                 });
+
+           }
+
+         });
+    });
+
+
+    function retry2 (id,site, listSv){
+        var sv = listSv[0];
+        var key = "x"+id;
+
+        if(retry_array.hasOwnProperty(key)){
+             var id_count = retry_array[key];
+        }else {
+            id_count = 1;
+            retry_array[key] = 1;
+        }
+
+         var captcha =  $('.'+id+site+' .captcha').val();
+         var id    = $('.'+id+site+' .captcha').attr("id");
+         var size  = $('.'+id+site+' .captcha').attr("imgsize");
+         var type  = $('.'+id+site+' .captcha').attr("imgtype");
+         var site  = $('.'+id+site+' .captcha').attr("site");
+        console.log('retry', sv);
+        if(captcha && id && size){
+                id_orgin = id.replace("zzzzzzzzz","%C2%A0");
+                id_orgin = id_orgin.replace("(","zyzyzyzyz");
+                id_orgin = id_orgin.replace(")","zyzyzyzyyyz");
+                $.ajax({
+                     type: "POST",
+                     url: 'ajax.php',
+                     data: "id="+id_orgin+"&captcha="+captcha+"&site="+site+"&size="+size+"&type="+type+"&sv="+sv+"&quality="+quality,
+                     beforeSend : function(xhr, opts){
+                        $('.'+id+site).addClass('info');
+                        $('.'+id+site+' .status').html("<img src='template/img/loading2.gif' width='16' height='11'/> Đang tải ["+id_count+"]...");
+                     },
+                     success: function( data ){
+                        if(data){
+
+                            var result = $.parseJSON( data );
+                            if(result && result.hasOwnProperty('status') && result.status==1){
+                                $('.'+id+site).removeClass("info warning danger");
+                                $('.'+id+site).addClass('success');
+                                $('.'+id+site+' .status').html('<strong>Hoàn thành</strong>');
+                                $('.'+id+site+' .option').html('<div><a href="'+result.url+'" class="btn btn-warning" download><i class="glyphicon glyphicon-cloud-download icon-white"></i> Tải về</a></div> <div><small><strong>'+result.file_name+'</strong> ('+bytesToSize(result.file_size)+') &nbsp <a href="javascript:void(0);" class="hideline" ref="'+id+site+'">[Ẩn dòng này]</a> </small></div> ');
+                                if(result.slot){
+                                    $('.'+id+site+' .fee').append("<br> Còn lại: <strong>"+result.slot+"</strong> lượt tải");
+                                }else if(result.xu) {
+                                    $('.'+id+site+' .fee').append("<br> Còn lại: <strong>"+result.xu+"</strong> xu");
+                                }
+
+                                $('.'+id+site).delay("1100").addClass('rubberBand animated');
+                                var txt = $(".listurl");
+
+                                if(result.url_text){
+                                   txt.val( txt.val() + result.url_text +"\n");
+                                }else{
+                                  txt.val( txt.val() + result.url +"\n");
+                                }
+                            }else {
+                                $('.'+id+site).removeClass("warning info");
+                                $('.'+id+site).addClass("danger");
+                                $('.'+id+site+' .status').html('Thất bại');
+                                if(result && result.hasOwnProperty('msg') && result.msg=="Please re-enter the security code!"){
+                                    $('.'+id+site+' .status').html('Nhập sai mã xác nhận, hãy nhập lại!');
+                                }else {
+                                    if(listSv.length <= 0){
+                                        $('.'+id+site).removeClass("info warning");
+                                        $('.'+id+site+' .option').html(result.msg);
+                                        $('.'+id+site).addClass("delete danger");
+                                    }else{
+                                        retry2(id,site, listSv);
+                                    }
+                                    if(id_count <= retry_times) {
+                                        // auto retry
+                                        retry_array[key] = id_count + 1;
+                                        retry2(id,site,listSv);
+                                    }else if(listSv.length > 0) {
+                                        retry_array[key] = 1;
+                                        listSv.shift()
+                                        retry2(id,site,listSv);
+                                    }else{
+                                        $('.'+id+site).removeClass("info warning");
+                                        $('.'+id+site+' .option').html(result.msg);
+                                        // $('.'+id+' .option').html("Xin lỗi, hiện server này đã hết slot tải ảnh.<br/>Hãy thử lại sau.");
+                                        $('.'+id+site).addClass("delete danger");
+                                        // removeItem(session1_array,id);
+                                        // removeItem(session2_array,id);
+                                    }
+
+                                }
+
+
+
+                            }
+                        }else {
+                           alert("Dữ liệu server trả về không đúng!");
+                           console.log(data);
+                        }
+
+
+                     }
+                 });
+
+           }
+    }
+
+    function cleanArray(actual){
+      var newArray = new Array();
+      for(var i = 0; i<actual.length; i++){
+          if (actual[i]){
+            newArray.push(actual[i]);
+        }
+      }
+      return newArray;
+    }
+
+
+
+    function removeItem(array,item){
+        var index = array.indexOf(item);
+        array.splice(index, 1);
+    }
+
+    function remove_effect (){
+        $('.step1,.step2,.tbl_step2 tr,.listlink').removeClass("rubberBand zoomOut animated bounceOutLeft bounceIn bounceOutUp bounceInLeft bounceInDown bounceOutDown");
+    }
+
+    function add_row (active,stt,id,site,status,fee,option){
+        // default = istockphoto
+        thumb = '/img.php?id='+id+'&site=istockphoto';
+        link = 'http://www.istockphoto.com/search/2/image?phrase='+id;
+        if(site=="istockvideo" || site == 'istockphotovideo'){
+            thumb = '/img.php?id='+id+'&site=istockphoto';
+            link = 'http://www.istockphoto.com/search/2/film?phrase='+id;
+        }else if(site=="depositphotos"){
+          thumb = '/img.php?id='+id+'&site=depositphotos';
+          link = 'http://depositphotos.com/'+id+'/photo.html'
+        }else if(site=="123rf"){
+          thumb = '/img.php?id='+id+'&site=123rf';
+          link = 'http://www.123rf.com/photo_'+id+'_businessman.html'
+        }else if(site=="bigstockphoto"){
+          thumb = '/img.php?id='+id+'&site=bigstockphoto';
+          link = 'http://www.bigstockphoto.com/image-'+id+'/stock-photo'
+        }else if(site=="dreamstime"){
+          thumb = 'http://thumbs.dreamstime.com/x/background-'+id+'.jpg';
+          link = 'http://www.dreamstime.com/royalty-image'+id;
+        }else if(site=="yayimages"){
+          thumb = '/img.php?id='+id+'&site=yayimages';
+          link = 'http://yayimages.com/index.php?option=com_yayimage&view=image&action=details&imgid='+id;
+        }else if(site=="fotolia"){
+          thumb = '/img.php?id='+id+'&site=fotolia';
+          link = 'http://us.fotolia.com/id/'+id;
+        }else if(site=="thinkstockphotos"){
+          thumb = '/img.php?id='+id+'&site=thinkstockphotos';
+          link = 'http://www.thinkstockphotos.com/image/stock-photo/'+id;
+        }else if(site=="graphicstock"){
+          thumb = '/img.php?id='+id+'&site=graphicstock';
+          link = 'http://www.graphicstock.com/stock-image/'+id+'.html';
+        }else if(site=="audioblocks"){
+          thumb = '/img.php?id='+id+'&site=audioblocks';
+          link = 'http://audioblocks.com/stock-audio/'+id+'.html';
+        }else if(site=="videoblocks"){
+          thumb = '/img.php?id='+id+'&site=videoblocks';
+          link = 'http://www.videoblocks.com/video/'+id+'/';
+        }else if(site=="vectorstock"){
+          thumb = '/img.php?id='+id+'&site=vectorstock';
+          link = 'https://www.vectorstock.com/royalty-free-vector/beer-vector-'+id;
+        }else if(site=="fotosearch"){
+          thumb = '/img.php?id='+id+'&site=fotosearch';
+          link = 'http://www.fotosearch.com/CSP506/k'+id+'/';
+        }else if(site=="shutterstock"){
+            thumb = 'http://image.shutterstock.com/display_pic_with_logo/'+id+'/'+id+'/aa-'+id+'.jpg';
+            link = 'https://www.shutterstock.com/image-photo/photo-'+id+'/';
+        }else if(site=="shutterstockvideo"){
+            thumb = 'https://ak.picdn.net/shutterstock/videos/'+id+'/thumb/1.jpg';
+            link = 'https://www.shutterstock.com/video/clip-1049073496-'+id+'/';
+        }else if(site == 'envatoelements'){
+            thumb = '';
+            link = 'https://elements.envato.com/photo-'+id+'/';
+
+        }else if(site == 'freepik'){
+            thumb = '';
+            link = 'https://www.freepik.com/category/photo_'+id+'.htm';
+        }else if(site == 'alamy'){
+            if( id.match(/http:/gi) || id.match(/https:/gi)){
+                thumb = '';
+                link = id;
+            }else{
+                thumb = 'https://c7.alamy.com/comp/'+id+'/'+id+'.jpg';
+                link = '';
+            }
+        }else if(site == 'stockunlimited'){
+            thumb = 'https://images.cdn4.stockunlimited.net/clipart450/xxx_'+id+'.jpg';
+            link = 'https://www.stockunlimited.com/image/xxxx_'+id+'.html';
+        }else if (site == "adobestock") {
+            thumb = '';
+            link = 'https://stock.adobe.com/images/item/' + id;
+        }
+        else if (site == "ooopic") {
+            thumb = '/img.php?id='+id+'&site=ooopic';
+            link = 'https://weili.ooopic.com/weili_' + id + '.html';
+        }
+        else if (site == "pixelsquid") {
+            thumb = '/img.php?id='+id+'&site=pixelsquid';
+            link = 'https://www.pixelsquid.com/png/aaa-' + id;
+        } else if(site=="motionarray"){
+           thumb = '/img.php?id='+id+'&site=motionarray';
+           link = 'https://motionarray.com/stock-video/'+id+'/'
+        }else if(site=="motionelements"){
+           thumb = '/img.php?id='+id+'&site=motionelements';
+           link = 'https://motionelements.com/stock-video-'+id+'-office'
+        }
+
+        if(site=="videoblocks"||site=="graphicstock"||site=="audioblocks"){
+          var id_fix = id.replace(".","");
+          id_fix = id_fix.replace("#","");
+          // id_fix = id_fix.replace("%C2%A0","&nbsp;");
+        }
+        id_fix = id.replace("%C2%A0","zzzzzzzzz");
+        id_text = id.replace("%C2%A0"," ");
+
+        id_fix = id.replace("(","zyzyzyzyz");
+        id_fix = id_fix.replace(")","zyzyzyzyyyz");
+        // console.log(id_fix);
+
+        // will replace in module file
+
+
+        $(".tbl_step2").append('<tr class="'+active+' '+id_fix+site+'"><td class="itemx">'+stt+'</td><td class="itemx thumb" style="align:center"><img width="90px" height="70px" src="'+thumb+'"></td><td class="itemx"><a href="'+link+'" target="_blank" title="Open in '+site+'.com">'+id_text+'</a><br/><b>'+site+'</b></td> <td class="itemx status">'+status+'</td> <td class="itemx fee">'+fee+'</td> <td class="itemx option">'+option+'</td> </tr>');
+    }
+
+    function bytesToSize(bytes) {
+       if(bytes == 0) return '0 Byte';
+       var k = 1000;
+       var sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB', 'PB', 'EB', 'ZB', 'YB'];
+       var i = Math.floor(Math.log(bytes) / Math.log(k));
+       return (bytes / Math.pow(k, i)).toPrecision(3) + ' ' + sizes[i];
+    }
+
+    // END OF MULTI
+
+  $("#video").change(function(){
+    $("#link").attr("placeholder","Nhập đường link video hoặc mã số ID video istockphoto vào đây");
+  });
+
+  $("#photo").change(function(){
+        $("#link").attr("placeholder","Nhập đường link ảnh hoặc mã số ID ảnh istockphoto vào đây");
+  });
+
+  $('.open_search').on('click', function(e) {
+        var site = $(this).attr("site");
+        $('.search_site').val(site);
+        $('.search_site_title').html(site);
+    });
+
+  $('#modal-search').on('shown', function () {
+      $('.txtsearch').focus();
+  });
+
+
+});
+
+
